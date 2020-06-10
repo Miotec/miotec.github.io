@@ -290,14 +290,14 @@
         function fillTexts(outputs) {
           document.getElementById("parametros_camera_TIS_text").value =
 `<?xml version="1.0"?>
-<ModeloCalibracao xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<ParametrosCamera xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <AlturaPixelsCamera>1024</AlturaPixelsCamera>
   <LarguraPixelsCamera>768</LarguraPixelsCamera>
   <DistanciaFocalVirtual>${outputs.DistanciaFocalVirtual.toFixed()}</DistanciaFocalVirtual>
   <AnguloVertical>${outputs.AnguloVertical.toFixed(1)}</AnguloVertical>
   <TranslacaoVertical>${outputs.TranslaçãoVertical}</TranslacaoVertical>
   <TranslacaoHorizontal>${outputs.TranslaçãoHorizontal}</TranslacaoHorizontal>
-</ModeloCalibracao>`;
+</ParametrosCamera>`;
           
           document.getElementById("parametros_projecao_text").value =
 `<?xml version="1.0"?>
