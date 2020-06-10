@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conversor Calibração Vert3D</title>
+  
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  
+  <style>
+    body {background: #333;}
+    
+    .row {
+      display: table;
+      /* width: 100%; */
+    }
+    
+    .column {      
+      padding: 20px;
+      display: table-cell;
+    }
+    
+    td {font-size: 1.5em;}
+
+    .slider {width: 350px;}
+
+    .readonly {background: #ccc; color: #555}
+    
+    .input-label, .output-label, p {color: white}
+    .input-value {font-size: 1em; width: 100px; text-align: right;}
+    
+    .output-value {font-size: 1em; width: 150px; text-align: right;}
+    
+    #divEntradas {
+      /* background-color:#aaa; */
+    }
+    
+    #divSaidas {
+      /* background-color:#bbb; */
+    }
+    
+    .xml {
+      width: 500px;
+      height: 200px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="row">
+    <div class="column" id="divEntradas">
+      <table>
+        <tr>
+          <td class="input-label">Altura Projetor</td>         
+          <td><input type="number" class="input-value" id="inputAlturaProjetor"></td>
+        </tr>
+        <!-- <tr>
+          <td colspan=2><input type="range" class="slider" id="sliderAlturaProjetor"></td>
+        </tr> -->
+        <tr>
+          <td class="input-label">Altura Câmera</td>           
+          <td><input type="number" class="input-value" id="inputAlturaCamera"></td>
+        </tr>
+        <!-- <tr>
+          <td colspan=2><input type="range" class="slider" id="sliderAlturaProjetor"></td>
+        </tr> -->
+        <tr>
+          <td class="input-label">Distância Câmera</td>        
+          <td><input type="number" class="input-value" id="inputDistanciaCamera"></td>
+        </tr>
+        <tr>
+          <td class="input-label">Distância Projetor</td>      
+          <td><input type="number" class="input-value" id="inputDistanciaProjetor"></td>
+        </tr>
+        <tr>
+          <td class="input-label">Altura Superior Projeção</td>
+          <td><input type="number" class="input-value" id="inputAlturaSuperiorProjecao"></td>
+        </tr>
+        <tr>
+          <td class="input-label">Altura Inferior Projeção</td>
+          <td><input type="number" class="input-value" id="inputAlturaInferiorProjecao"></td>
+        </tr>
+        <tr>
+          <td class="input-label">Altura Superior Câmera</td>  
+          <td><input type="number" class="input-value" id="inputAlturaSuperiorCamera"></td>
+        </tr>
+        <tr>
+          <td class="input-label">Altura Inferior Câmera</td>  
+          <td><input type="number" class="input-value" id="inputAlturaInferiorCamera"></td>
+        </tr>
+      </table>
+    </div>
+    <div class="column" id="divSaidas">
+      <table>
+        <tr>
+          <td class="output-label">Distância Focal Virtual</td>
+          <td><input type="number" class="output-value" id="inputDistanciaFocalVirtual"/></td>
+        </tr><tr>
+          <td class="output-label">Ângulo Vertical</td>
+          <td><input type="number" class="output-value" id="inputAnguloVertical" step="0.1"/></td>
+        </tr><tr>
+          <td class="output-label">Translação Vertical</td>
+          <td><input type="number" class="output-value readonly" id="inputTranslaçãoVertical" readonly/></td>
+        </tr><tr>
+          <td class="output-label">Translação Horizontal</td>
+          <td><input type="number" class="output-value readonly" id="inputTranslaçãoHorizontal" readonly/></td>
+        </tr><tr>
+          <td class="output-label">Altura Borda Inferior</td>
+          <td><input type="number" class="output-value readonly" id="inputAlturaBordaInferior" readonly/></td>
+        </tr><tr>
+          <td class="output-label">Altura Borda Superior</td>
+          <td><input type="number" class="output-value readonly" id="inputAlturaBordaSuperior" readonly/></td>
+        </tr><tr>
+          <td class="output-label">Distância Projeção</td>
+          <td><input type="number" class="output-value readonly" id="inputDistânciaProjeção" readonly/></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  <div id="divSvg"></div>
+  <div class="row">
+    <div class="column">
+      <p>parametros_camera_TIS.xml</p>
+      <textarea class="xml" id="parametros_camera_TIS_text"></textarea>
+    </div>
+    <div class="column">
+      <p>parametros_projecao.xml</p>
+      <textarea class="xml" id="parametros_projecao_text"></textarea>    
+    </div>
+  </div>
+  
+  <script>
+    
+    /* TODO: 
+    - Criar os objetos fora da função draw
+    - Inverter a leitura dos valores dos inputs, preenchendo-os com os valores dos objetos
+    - Atualizar os objetos na função draw
+    */
+    
+    // criar os objetos
+    
+    const inputs = {
+      "AlturaProjetor": 720,
+      "AlturaCamera": 1400,
+      "DistanciaCamera": 2230,
+      "DistanciaProjetor": 2290,
+      "AlturaSuperiorProjecao": 1650,
+      "AlturaInferiorProjecao": 715,
+      "AlturaSuperiorCamera": 1590,
+      "AlturaInferiorCamera": 760
+    }
+    
+    Object.entries(inputs).forEach(e => {
+      document.getElementById(`input${e[0]}`).value = e[1];
+    });
+    
+    const outputs = {}
+    const d = {};
+
+    
+    updateForwards();
+    
+    d3.selectAll(".input-value").on("input", updateForwards);
+    d3.select("#inputDistanciaFocalVirtual").on("input", alterarCamera);
+    d3.select("#inputAnguloVertical").on("input", alterarCamera);
+    
+    
+    
+    function alterarCamera() {
+      let distanciaFocalVirtual = parseFloat(document.getElementById("inputDistanciaFocalVirtual").value);
+      let anguloVertical = parseFloat(document.getElementById("inputAnguloVertical").value);
+
+      // calcular as linhas superior e inferior como se o ângulo estivesse reto pra frente
+      //let camera = 
+
+      // girar pra baixo conforme o AnguloVertical
+      // calcular interseções com parede
+    }
+    
+    
+    function updateForwards() {
+      // const names = [
+      // "AlturaProjetor", "AlturaCamera", 
+      // "DistanciaCamera", "DistanciaProjetor", 
+      // "AlturaInferiorProjecao", "AlturaSuperiorProjecao",
+      // "AlturaInferiorCamera", "AlturaSuperiorCamera"
+      // ];
+      
+      // const inputs = {};
+      
+      // for (let nameIndex in names) {
+      //   let name = names[nameIndex];
+      //   inputs[name] = parseFloat(d3.select(`#input${name}`).property("value"));
+      // }
+
+      Object.entries(inputs).forEach(entry => {
+        let propertyname = entry[0]
+        let inputname = `input${propertyname}`;
+        let val = document.getElementById(inputname).value;
+        inputs[propertyname] = val;
+      })
+      
+      
+      d.projetor = point(inputs.DistanciaProjetor, inputs.AlturaProjetor);
+      d.camera = point(inputs.DistanciaCamera, inputs.AlturaCamera);
+      d.bordaInferiorProjecao = point(0, inputs.AlturaInferiorProjecao);
+      d.bordaSuperiorProjecao = point(0, inputs.AlturaSuperiorProjecao);
+      d.bordaInferiorCamera =   point(0, inputs.AlturaInferiorCamera);
+      d.bordaSuperiorCamera =   point(0, inputs.AlturaSuperiorCamera);
+      
+      d.wall = line(point(0,0), point(0,2000));
+      d.linhaInferiorProjecao = line(d.projetor, d.bordaInferiorProjecao);
+      d.linhaSuperiorProjecao = line(d.projetor, d.bordaSuperiorProjecao);
+      d.linhaInferiorCamera = line(d.camera, d.bordaInferiorCamera);
+      d.linhaSuperiorCamera = line(d.camera, d.bordaSuperiorCamera);
+      
+      const outputs = {
+        DistanciaFocalVirtual: getDistanciaFocalVirtual(d.linhaInferiorCamera, d.linhaSuperiorCamera),
+        AnguloVertical: getInclinacaoCamera(d.linhaInferiorCamera, d.linhaSuperiorCamera),
+        TranslaçãoVertical: inputs.AlturaCamera - inputs.AlturaProjetor,
+        TranslaçãoHorizontal: inputs.DistanciaCamera - inputs.DistanciaProjetor,
+        
+        AlturaBordaInferior: inputs.AlturaInferiorProjecao - inputs.AlturaProjetor,
+        AlturaBordaSuperior: inputs.AlturaSuperiorProjecao - inputs.AlturaProjetor,
+        DistânciaProjeção: parseInt(inputs.DistanciaProjetor)
+      }
+      
+      for (let outputName in outputs) {
+        let valueToSet = outputs[outputName].toFixed(2);
+        let inputName = `input${outputName}`;
+        document.getElementById(inputName).value = valueToSet;
+      }
+      
+      draw(d);
+      fillTexts(outputs);
+    }
+        
+    
+    function draw(drawing) {
+      const unitWidth = 4000;
+      const pixelWidth = 1000;
+      const pixelHeight = pixelWidth*0.65;
+      const scale = pixelWidth / unitWidth;
+      
+      d3.select("#divSvg").selectAll("svg").remove();
+      
+      const svg = d3.select("#divSvg")
+      .append("svg")
+      .classed("svg", true)
+      .attr("width", pixelWidth)
+      .attr("height", pixelHeight)
+      .attr("style", "background-color: black");
+      
+      wcs = svg.append("g")
+      .attr("transform", `translate(${pixelWidth*0.1}, ${pixelHeight*0.9}) scale(${scale},-${scale})`)
+      
+      let elementos = Object.entries(drawing).map(e => e[1]);
+      let pontos = elementos.filter(element => element.hasOwnProperty("x"))
+      let linhas = elementos.filter(element => element.hasOwnProperty("p1"))
+      
+      linhas.forEach(l => {
+        wcs.append("line")
+        .attr("x1", l.p1.x)
+        .attr("y1", l.p1.y)
+        .attr("x2", l.p2.x)
+        .attr("y2", l.p2.y)
+        .attr("stroke", "white")
+        .attr("stroke-width", 3)
+      })
+      
+      pontos.forEach(p => {
+        wcs.append("circle")
+        .attr("cx", p.x)
+        .attr("cy", p.y)
+        .attr("r", 20)
+        .attr("fill", "red")
+      })
+      
+      // let pontos = Object.entries(d).map(e, )
+      
+      // Object.entries(d).forEach(k => {
+        //   let element = k[1];
+        //   if (element.hasOwnProperty("x")) {
+          //     console.log("ponto:", element)
+          //   }
+          //   else 
+          // })
+        }
+        
+        function fillTexts(outputs) {
+          document.getElementById("parametros_camera_TIS_text").value =
+`<?xml version="1.0"?>
+<ModeloCalibracao xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <AlturaPixelsCamera>1024</AlturaPixelsCamera>
+  <LarguraPixelsCamera>768</LarguraPixelsCamera>
+  <DistanciaFocalVirtual>${outputs.DistanciaFocalVirtual.toFixed()}</DistanciaFocalVirtual>
+  <AnguloVertical>${outputs.AnguloVertical.toFixed(1)}</AnguloVertical>
+  <TranslacaoVertical>${outputs.TranslaçãoVertical}</TranslacaoVertical>
+  <TranslacaoHorizontal>${outputs.TranslaçãoHorizontal}</TranslacaoHorizontal>
+</ModeloCalibracao>`;
+          
+          document.getElementById("parametros_projecao_text").value =
+`<?xml version="1.0"?>
+<ParametrosProjecao xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <EspessuraFranjaPrincipal>6</EspessuraFranjaPrincipal>
+  <EspessuraFranjaAdicional>3</EspessuraFranjaAdicional>
+  <EspessuraIntervaloFranja>11</EspessuraIntervaloFranja>
+  <AlturaBordaInferior>${outputs.AlturaBordaInferior}</AlturaBordaInferior>
+  <AlturaBordaSuperior>${outputs.AlturaBordaSuperior}</AlturaBordaSuperior>
+  <DistânciaProjeção>${outputs.DistânciaProjeção}</DistânciaProjeção>
+</ParametrosProjecao>`
+        }
+        
+
+        function getDistanciaFocalVirtual(linha1, linha2) {
+          let alturaPixelsCamera = 1024;
+          let catetoOposto = alturaPixelsCamera/2;
+          let angulo = angle(linha2, linha1);
+          console.log(angulo*180/Math.PI);
+          let meioAngulo = angulo/2;
+          let catetoAdjacente = catetoOposto / Math.tan(meioAngulo);
+          console.log(catetoAdjacente)
+          return catetoAdjacente;
+        }
+        
+        function getInclinacaoCamera(l1, l2) {
+          return -degrees(slope(l1)+slope(l2))/2
+        }
+
+
+        function point(x,y) {
+          return { x, y };
+        }
+        
+        function line(p1, p2) {
+          return { p1, p2 };
+        }
+        
+        function angle(l1, l2) {
+          return slope(l2) - slope(l1)
+        }
+        
+        function slope(line) {
+          let p1 = line.p1;
+          let p2 = line.p2;
+          return Math.atan((p2.y - p1.y) / (p2.x - p1.x));
+        }
+        
+        function degrees(rad) {
+          return rad * 180 / Math.PI;
+        }
+
+        
+      </script>
+      
+      
+      
+    </body>
+    </html>
